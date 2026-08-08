@@ -6,8 +6,10 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
-      # Sem default: preferimos falhar a subir com "password"
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env/Portainer}
+      # DEFINA DB_PASSWORD nas variáveis da Stack (Portainer) ou no .env.
+      # Sem valor, o Postgres recusa iniciar — de propósito: é melhor do que
+      # subir com uma senha default conhecida.
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME:-meuponto}
     ports:
       # Só no loopback do host. O backend fala com "db:5432" pela rede interna;
@@ -37,7 +39,7 @@ services:
       NODE_ENV: production
       PORT: ${BACKEND_PORT:-3333}
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@db:5432/${DB_NAME:-meuponto}?schema=public
-      DEFAULT_PASSWORD: ${DEFAULT_PASSWORD:?defina DEFAULT_PASSWORD no .env/Portainer}
+      DEFAULT_PASSWORD: ${DEFAULT_PASSWORD}
     depends_on:
       db:
         condition: service_healthy
