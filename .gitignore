@@ -27,5 +27,15 @@ Thumbs.db
 backend/generated/prisma/
 *.db
 *.sqlite
+
+# === Dumps/backups do banco (DADOS REAIS DE FUNCIONÁRIOS) — NUNCA SUBIR ===
+# Atenção: NÃO ignorar *.sql em geral — as migrations do Prisma são .sql
+# e precisam ser versionadas (backend/prisma/migrations/**).
+backup*.sql
+*-backup.sql
+*_backup.sql
+*.dump
+*.sql.gz
+/backups/
 sshpass.bat
 ERROR
