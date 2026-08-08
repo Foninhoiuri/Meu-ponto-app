@@ -136,13 +136,29 @@ antes de qualquer stack, senão o deploy falha com
 docker network create proxy
 ```
 
-(A stack `infra-proxy` cria essa rede junto com o Traefik. Se você já subiu ela,
-não precisa do comando acima.)
-
-Depois, no Portainer: **Stacks → Add stack → Repository**, apontando para este
+No Portainer: **Stacks → Add stack → Repository**, apontando para este
 repositório. Preencha as variáveis marcadas como OBRIGATÓRIAS no `.env.example`
 em **Environment variables** — elas não têm valor padrão, e sem elas o serviço
 que as usa não sobe.
+
+### Publicar na internet
+
+O acesso externo é feito por **Cloudflare Tunnel** (o servidor está atrás de
+CGNAT, sem IP público). No painel do túnel, crie um **Public Hostname** para
+este app apontando para o IP do host e a porta publicada:
+
+```
+http://IP-DO-HOST:PORTA
+```
+
+A porta é a definida em `APP_PORT` (ou `FRONTEND_PORT`) nas variáveis da
+stack. Se você não definir, vale o padrão do compose — que provavelmente não
+é o que você espera.
+
+> Como o túnel entrega direto no app, a porta fica publicada em `0.0.0.0`:
+> quem está na sua rede local alcança o app pelo IP, sem passar pela
+> Cloudflare. Para um app que precise ficar acessível **só** pelo túnel, ele
+> não pode publicar porta — precisaria de um proxy reverso na frente.
 
 ## Segurança
 
