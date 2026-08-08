@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  pin          String?  // PIN criptografado para acesso offline/rápido
+  settings     Settings?
+  timeRecords  TimeRecord[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Settings {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id])
+  weeklyHours        Int      @default(44)
+  schedule           Json?    // Jornada por dia: [{key:'seg',enabled,entrada:'08:00',saida:'18:00',almoco:60}, ...]
+  bankValidityMonths Int      @default(6)
+  strictTolerance    Boolean  @default(false)
+  countPontes        Boolean  @default(true) // false = pontes não descontam do banco
+  brasilApiToken     String?
+  theme              String   @default("dark")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model TimeRecord {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  date         DateTime @db.Date // Apenas a data
+  punchIn      DateTime? // Entrada
+  punchOut     DateTime? // Saída
+  lunchStart   DateTime? // Início Almoço
+  lunchEnd     DateTime? // Fim Almoço
+  punches      DateTime[] // Múltiplos horários (histórico unificado)
+  plantaoEvents PlantaoEvent[] // Subcategorias de plantão
+  
+  isPlantao    Boolean  @default(false)
+  isPonte      Boolean  @default(false) // Ponte de Feriado (esperado = 0 horas)
+  isAbsence    Boolean  @default(false) // Falta
+  isJustified  Boolean  @default(false) // Falta Justificada (não desconta horas)
+  reason       String?  // Justificativa para falta/ajuste plantão, ou edição manual)
+  
+  status       String   @default("OPEN") // OPEN, CLOSED, EDITED
+  
+  balanceDiff  Int      @default(0) // Diferença em minutos do saldo no dia (positivo ou negativo)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, date]) // Apenas um registro de dia por usuário
+}
+
+model PlantaoEvent {
+  id           String     @id @default(uuid())
+  timeRecordId String
+  timeRecord   TimeRecord @relation(fields: [timeRecordId], references: [id], onDelete: Cascade)
+  name         String?    // Nome curto do evento (ex: "Servidor caiu", "Deploy urgente")
+  startTime    DateTime
+  endTime      DateTime?
+  description  String?    // Descrição detalhada
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}

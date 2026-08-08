@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+README.md
+
+# Não copiar dados/artefatos locais para dentro da imagem
+generated/prisma
+*.db
+*.sqlite
+uploads
+dist
+build
+*.log

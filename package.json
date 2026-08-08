@@ -1,0 +1,17 @@
+{
+  "name": "meu-ponto",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:backend": "npm install --prefix backend",
+    "install:frontend": "npm install --prefix frontend",
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev": "concurrently -n \"backend,frontend\" -c \"yellow,blue\" \"npm run dev:backend\" \"npm run dev:frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "shadcn": "^4.13.1"
+  }
+}

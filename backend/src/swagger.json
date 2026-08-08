@@ -1,0 +1,243 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "API Meu Ponto",
+    "version": "1.0.0",
+    "description": "API completa para o controle de ponto PWA, incluindo gestão de horários, plantões, pontes de feriado e configurações. Ideal para Integrações e automações."
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "API Atual"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "TimeRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "userId": { "type": "string" },
+          "date": { "type": "string", "format": "date-time" },
+          "punchIn": { "type": "string", "format": "date-time", "nullable": true },
+          "punchOut": { "type": "string", "format": "date-time", "nullable": true },
+          "lunchStart": { "type": "string", "format": "date-time", "nullable": true },
+          "lunchEnd": { "type": "string", "format": "date-time", "nullable": true },
+          "punches": { 
+            "type": "array", 
+            "items": { "type": "string", "format": "date-time" },
+            "description": "Lista de horários adicionais, usada principalmente para múltiplos atendimentos em plantões."
+          },
+          "isPlantao": { "type": "boolean" },
+          "isPonte": { "type": "boolean" },
+          "isAbsence": { "type": "boolean" },
+          "reason": { "type": "string", "nullable": true },
+          "status": { "type": "string", "enum": ["OPEN", "WORKING", "LUNCH", "CLOSED", "EDITED"] },
+          "balanceDiff": { "type": "integer", "description": "Saldo em minutos do dia. Positivo = hora extra, Negativo = banco de horas devido." }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/records": {
+      "get": {
+        "summary": "Lista todos os registros de ponto de um usuário",
+        "tags": ["Records"],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "description": "ID único do usuário",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de registros encontrados ordenados do mais recente para o mais antigo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/TimeRecord" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/records/balance": {
+      "get": {
+        "summary": "Obtém o saldo total de banco de horas",
+        "tags": ["Records"],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "description": "ID único do usuário",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saldo total consolidado do usuário.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": { "type": "string" },
+                    "totalBalance": { "type": "integer", "description": "Saldo total em minutos. Positivo = extra, Negativo = devido." },
+                    "totalBalanceFormatted": { "type": "string", "description": "Saldo formatado para exibição. Exemplo: + 1a 2m 5d 10h 30m" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/records/punch": {
+      "post": {
+        "summary": "Bate o ponto ou agenda configurações diárias",
+        "tags": ["Records"],
+        "description": "Endpoint inteligente que cria ou atualiza o ponto do dia atual. Ele pode receber marcações de entrada/saída normais ou configurar flags de Plantão/Ponte de Feriado.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["userId", "type"],
+                "properties": {
+                  "userId": { "type": "string", "description": "ID do usuário" },
+                  "type": { 
+                    "type": "string", 
+                    "enum": ["IN", "OUT", "LUNCH_START", "LUNCH_END", "PRE_DEFINE_PLANTAO", "PRE_DEFINE_PONTE"],
+                    "description": "Tipo de evento de ponto. PRE_DEFINE_* são usados para agendar dias antes deles ocorrerem."
+                  },
+                  "reason": { "type": "string", "description": "Opcional. Justificativa para a marcação." },
+                  "isPlantao": { "type": "boolean", "description": "Força o registro como plantão se enviado true." },
+                  "date": { "type": "string", "format": "date-time", "description": "Data alvo. Se omitida, assume o momento atual (now)." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ponto registrado com sucesso e saldo diário recalculado.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TimeRecord" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/records/{id}": {
+      "put": {
+        "summary": "Edita manualmente os horários ou flags de um registro existente",
+        "tags": ["Records"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "punchIn": { "type": "string", "format": "date-time", "nullable": true },
+                  "punchOut": { "type": "string", "format": "date-time", "nullable": true },
+                  "lunchStart": { "type": "string", "format": "date-time", "nullable": true },
+                  "lunchEnd": { "type": "string", "format": "date-time", "nullable": true },
+                  "reason": { "type": "string", "nullable": true },
+                  "isAbsence": { "type": "boolean" },
+                  "isPlantao": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registro editado e recalculo de banco de horas realizado.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TimeRecord" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Deleta permanentemente um registro",
+        "tags": ["Records"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sucesso"
+          }
+        }
+      }
+    },
+    "/holidays/{year}": {
+      "get": {
+        "summary": "Busca lista de feriados nacionais de um determinado ano",
+        "tags": ["Holidays"],
+        "description": "Faz proxy cacheado da Brasil API para obter os feriados, essencial para a lógica de Pontes de Feriado.",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" },
+            "example": 2024
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de datas no formato ISO (YYYY-MM-DD)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "string", "example": "2024-12-25" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
