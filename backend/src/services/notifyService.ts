@@ -8,7 +8,7 @@ export function vapidPublicKey(): string {
 }
 
 export async function initVapid() {
-  const read = async (k: string) => (await prisma.settings.findFirst())?.[k as keyof typeof prisma.settings] as string | undefined;
+
   
   // We don't have vapid keys in Settings model directly, so we either add them to the Prisma schema or use a simpler approach.
   // For Meu Ponto app, we can just check ENV vars or generate them in memory if missing (this means subscriptions drop on restart without ENV).
