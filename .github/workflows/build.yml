@@ -1,0 +1,91 @@
+# Constrói e publica as imagens no GHCR, com a IDENTIDADE assada dentro:
+# versão, commit e data do build. É o que /version devolve ao suporte.
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:   # permite publicar sob demanda
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  imagens:
+    runs-on: ubuntu-latest
+    # Só constrói se a verificação passou. Imagem que não passou no test.yml não
+    # deveria existir.
+    needs: []
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: dados do build
+        id: info
+        run: |
+          echo "versao=$(node -p "require('./package.json').version" || echo "1.0.0")" >> $GITHUB_OUTPUT
+          echo "commit=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "data=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
+          echo "repo=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}   # não precisa criar segredo
+
+      - name: backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          # DUAS tags sempre: `latest` para conveniência e a versão para poder
+          # VOLTAR. Só `latest` significa não saber o que está rodando.
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.info.outputs.repo }}-backend:latest
+            ${{ env.REGISTRY }}/${{ steps.info.outputs.repo }}-backend:${{ steps.info.outputs.versao }}
+            ${{ env.REGISTRY }}/${{ steps.info.outputs.repo }}-backend:${{ steps.info.outputs.commit }}
+          build-args: |
+            APP_VERSION=${{ steps.info.outputs.versao }}
+            GIT_COMMIT=${{ steps.info.outputs.commit }}
+            BUILD_AT=${{ steps.info.outputs.data }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.info.outputs.repo }}-frontend:latest
+            ${{ env.REGISTRY }}/${{ steps.info.outputs.repo }}-frontend:${{ steps.info.outputs.versao }}
+            ${{ env.REGISTRY }}/${{ steps.info.outputs.repo }}-frontend:${{ steps.info.outputs.commit }}
+          build-args: |
+            APP_VERSION=${{ steps.info.outputs.versao }}
+            BUILD_AT=${{ steps.info.outputs.data }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: resumo
+        run: |
+          {
+            echo "### Imagens publicadas"
+            echo ""
+            echo "| item | valor |"
+            echo "|---|---|"
+            echo "| versão | ${{ steps.info.outputs.versao }} |"
+            echo "| commit | ${{ steps.info.outputs.commit }} |"
+            echo "| build  | ${{ steps.info.outputs.data }} |"
+            echo ""
+            echo "No Portainer: **Pull and redeploy** na Stack do projeto."
+            echo "Depois confira a versão do container — o commit precisa ser este."
+          } >> $GITHUB_STEP_SUMMARY

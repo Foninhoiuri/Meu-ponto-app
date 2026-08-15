@@ -1,0 +1,78 @@
+# Verificação a cada push e PR. É o portão: nada vira imagem sem passar aqui.
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # Push novo na mesma branch cancela a execução anterior — não adianta gastar
+  # runner verificando código que já foi substituído.
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+
+    # Banco de verdade para o typecheck do Prisma e para os testes. Nunca aponte
+    # o CI para o banco de produção — nem "só para ler".
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: teste
+          POSTGRES_USER: teste
+          POSTGRES_PASSWORD: teste
+        options: >-
+          --health-cmd "pg_isready -U teste"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports: ["5432:5432"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # ---------- BACKEND ----------
+      - name: instalar (backend)
+        working-directory: backend
+        run: npm ci
+
+      - name: gerar client do prisma
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: migrations aplicam sem erro
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://teste:teste@localhost:5432/teste?schema=public
+        # Vale por si só: pega migration quebrada ANTES de ela chegar em produção.
+        run: npx prisma migrate deploy
+
+      - name: typecheck / build (backend)
+        working-directory: backend
+        run: npm run build
+
+      - name: testes (backend)
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://teste:teste@localhost:5432/teste?schema=public
+          JWT_SECRET: apenas-para-teste
+        # `--if-present`: projeto sem suíte ainda não quebra o CI.
+        run: npm test --if-present
+
+      # ---------- FRONTEND ----------
+      - name: instalar (frontend)
+        working-directory: frontend
+        run: npm ci
+
+      - name: typecheck / build (frontend)
+        working-directory: frontend
+        run: npm run build

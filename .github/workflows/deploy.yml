@@ -1,0 +1,81 @@
+# Preparo do deploy.
+#
+# Sem webhook do Portainer (é recurso da versão Business), o último passo é
+# MANUAL: "Pull and redeploy" na Stack. Este workflow existe para que esse passo
+# manual seja rápido, seguro e conferível — ele monta o pacote de informação que
+# você precisa ter na mão na hora de apertar o botão.
+#
+# Se um dia houver webhook, é aqui que ele entra (um `curl` no fim).
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ambiente:
+        description: Ambiente alvo
+        type: choice
+        options: [producao, homologacao]
+        default: producao
+
+jobs:
+  preparar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # precisa do histórico para o "o que muda"
+
+      - name: dados da versão
+        id: info
+        run: |
+          echo "versao=$(node -p "require('./package.json').version" || echo "1.0.0")" >> $GITHUB_OUTPUT
+          echo "commit=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "repo=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: o que muda desde a última tag
+        id: mudancas
+        run: |
+          ANTERIOR=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$ANTERIOR" ]; then
+            echo "faixa=$ANTERIOR..HEAD" >> $GITHUB_OUTPUT
+            git log --oneline "$ANTERIOR"..HEAD > mudancas.txt
+          else
+            echo "faixa=(sem tag anterior)" >> $GITHUB_OUTPUT
+            git log --oneline -20 > mudancas.txt
+          fi
+
+      - name: tem migration nova?
+        id: migra
+        run: |
+          ANTERIOR=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$ANTERIOR" ] && git diff --name-only "$ANTERIOR"..HEAD | grep -q '^backend/prisma/migrations/'; then
+            echo "tem=sim" >> $GITHUB_OUTPUT
+          else
+            echo "tem=nao" >> $GITHUB_OUTPUT
+          fi
+
+      - name: roteiro do deploy
+        run: |
+          {
+            echo "## Deploy · ${{ inputs.ambiente }}"
+            echo ""
+            echo "**Versão:** ${{ steps.info.outputs.versao }} · **Commit:** ${{ steps.info.outputs.commit }}"
+            echo ""
+            if [ "${{ steps.migra.outputs.tem }}" = "sim" ]; then
+              echo "> ⚠ **Há migration nova.** Faça backup ANTES e confirme que ela foi testada numa cópia do banco de produção."
+              echo ""
+            fi
+            echo "### Passos"
+            echo "1. Confira que o workflow **build** publicou \`:${{ steps.info.outputs.versao }}\`"
+            echo "2. Portainer → Stack do projeto → **Pull and redeploy**"
+            echo "3. \`docker service ls\` ou \`docker compose ps\` — todos *healthy*"
+            echo "4. Exercite um caminho crítico (login + tela principal)"
+            echo ""
+            echo "### Como voltar"
+            echo "Republique a Stack apontando para a tag anterior. Atenção: migration NÃO volta sozinha — a volta dela é o backup."
+            echo ""
+            echo "### O que muda (${{ steps.mudancas.outputs.faixa }})"
+            echo '```'
+            cat mudancas.txt
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY
