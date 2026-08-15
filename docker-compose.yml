@@ -44,8 +44,7 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@db:5432/${DB_NAME:-meuponto}?schema=public
       DEFAULT_PASSWORD: ${DEFAULT_PASSWORD}
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     deploy:
       resources:
         limits:
