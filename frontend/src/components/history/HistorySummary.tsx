@@ -19,15 +19,15 @@ export const HistorySummary = ({ records, pendingCount }: Props) => {
     const now = new Date();
     const y = now.getFullYear(), mo = now.getMonth();
 
-    // Série dos últimos 30 dias (horas trabalhadas por dia)
+    // Série dos últimos 7 dias (horas trabalhadas por dia)
     const series: { label: string; min: number }[] = [];
-    for (let i = 29; i >= 0; i--) {
+    for (let i = 6; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
       const rec = byDate.get(dkey(d));
       series.push({ label: dkey(d), min: rec ? workedMinutes(rec) : 0 });
     }
-    const worked30 = series.filter(s => s.min > 0);
-    const avg30 = worked30.length ? Math.round(worked30.reduce((a, s) => a + s.min, 0) / worked30.length) : 0;
+    const worked7 = series.filter(s => s.min > 0);
+    const avg7 = worked7.length ? Math.round(worked7.reduce((a, s) => a + s.min, 0) / worked7.length) : 0;
 
     // Métricas do mês corrente
     let saldoMes = 0, extraMes = 0, plantoes = 0, workedMonthTotal = 0, workedMonthDays = 0, debitoPontes = 0, pontesCount = 0;
@@ -45,7 +45,7 @@ export const HistorySummary = ({ records, pendingCount }: Props) => {
     });
     const avgDiaMes = workedMonthDays ? Math.round(workedMonthTotal / workedMonthDays) : 0;
 
-    return { series, avg30, saldoMes, extraMes, plantoes, avgDiaMes, debitoPontes, pontesCount };
+    return { series, avg7, saldoMes, extraMes, plantoes, avgDiaMes, debitoPontes, pontesCount };
   }, [records]);
 
   // Geometria do gráfico de área
@@ -59,10 +59,10 @@ export const HistorySummary = ({ records, pendingCount }: Props) => {
   };
   const linePath = data.series.map((s, i) => { const [x, yv] = xy(i, s.min); return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${yv.toFixed(1)}`; }).join(' ');
   const areaPath = `${linePath} L${(P + (data.series.length - 1) * stepX).toFixed(1)},${H - P} L${P},${H - P} Z`;
-  const avgY = H - P - (data.avg30 / maxMin) * (H - P * 2);
+  const avgY = H - P - (data.avg7 / maxMin) * (H - P * 2);
 
   const kpis = [
-    { label: 'Média/dia (30d)', value: data.avg30 > 0 ? formatHm(data.avg30) : '—', color: 'text-white' },
+    { label: 'Média/dia (7d)', value: data.avg7 > 0 ? formatHm(data.avg7) : '—', color: 'text-white' },
     { label: 'Horas extras (mês)', value: data.extraMes > 0 ? `+ ${formatHm(data.extraMes)}` : '—', color: 'text-success' },
     { label: 'Média/dia (mês)', value: data.avgDiaMes > 0 ? formatHm(data.avgDiaMes) : '—', color: 'text-white' },
     { label: 'Saldo do mês', value: data.saldoMes === 0 ? 'Em dia' : `${data.saldoMes > 0 ? '+ ' : '- '}${formatHm(data.saldoMes)}`, color: data.saldoMes === 0 ? 'text-textSecondary' : data.saldoMes > 0 ? 'text-success' : 'text-danger' },
@@ -73,13 +73,13 @@ export const HistorySummary = ({ records, pendingCount }: Props) => {
 
   return (
     <div className="space-y-4">
-      {/* Gráfico de horas trabalhadas (últimos 30 dias) */}
+      {/* Gráfico de horas trabalhadas (últimos 7 dias) */}
       <Card className="gap-0 border-white/10 bg-white/[0.03] py-4 shadow-none">
         <div className="px-4">
           <div className="flex items-baseline justify-between">
-            <p className="text-[11px] uppercase tracking-wider text-textSecondary">Horas trabalhadas · 30 dias</p>
+            <p className="text-[11px] uppercase tracking-wider text-textSecondary">Horas trabalhadas · 7 dias</p>
             <p className="text-sm font-semibold text-white tabular-nums">
-              média {data.avg30 > 0 ? formatHm(data.avg30) : '—'}
+              média {data.avg7 > 0 ? formatHm(data.avg7) : '—'}
             </p>
           </div>
           <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 w-full" preserveAspectRatio="none" style={{ height: '96px' }}>
@@ -89,7 +89,7 @@ export const HistorySummary = ({ records, pendingCount }: Props) => {
                 <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0" />
               </linearGradient>
             </defs>
-            {data.avg30 > 0 && (
+            {data.avg7 > 0 && (
               <line x1={P} y1={avgY} x2={W - P} y2={avgY} stroke="var(--color-textSecondary)" strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
             )}
             <path d={areaPath} fill="url(#areaFill)" />

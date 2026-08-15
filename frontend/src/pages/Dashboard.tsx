@@ -176,6 +176,37 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     return 'WORKING';
   }, [todayRecord]);
 
+  const lunchCountdown = useMemo(() => {
+    if (!todayRecord) return null;
+    if (status !== 'LUNCH' || !todayRecord.lunchStart) return null;
+
+    const dateStr = todayRecord.date.substring(0, 10);
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dow = new Date(y, m - 1, d).getDay(); // 0=Dom..6=Sáb
+
+    const DOW_KEYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+    let almoco = 60; // 60 minutos de almoço padrão
+    let enabled = dow !== 0 && dow !== 6;
+    try {
+      const raw = localStorage.getItem('work_schedule');
+      if (raw) {
+        const sched = JSON.parse(raw).find((s: any) => s.key === DOW_KEYS[dow]);
+        if (sched) {
+          enabled = Boolean(sched.enabled);
+          almoco = sched.almoco !== undefined ? sched.almoco : almoco;
+        }
+      }
+    } catch { /* usa fallback */ }
+    if (!enabled || almoco === 0) return null;
+
+    const lunchStart = new Date(todayRecord.lunchStart);
+    const targetEnd = new Date(lunchStart.getTime() + almoco * 60000);
+
+    const remainingMin = Math.round((targetEnd.getTime() - now.getTime()) / 60000);
+    const endLabel = `${String(targetEnd.getHours()).padStart(2, '0')}:${String(targetEnd.getMinutes()).padStart(2, '0')}`;
+    return { remainingMin, endLabel, done: remainingMin <= 0 };
+  }, [todayRecord, status, now]);
+
   // Ideia 1: tempo restante até o fim do expediente, usando a jornada
   // configurada em Ajustes (work_schedule). Chegou tarde → fim proporcional
   // (entrada + duração da jornada); chegou cedo → mira o fim do turno normal.
@@ -520,9 +551,22 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
       {/* Main Action — o layout se molda aos botões (alturas garantidas) */}
       <main className="flex-1 min-h-0 flex flex-col px-5 pt-3 pb-2 gap-3">
-        {/* Ideia 1: contador compacto de tempo até o fim do expediente */}
-        {shiftCountdown && (
-          <div className="shrink-0 text-center">
+        {status === 'LUNCH' && lunchCountdown ? (
+          <div className="shrink-0 text-center animate-fade-in">
+            {lunchCountdown.done ? (
+              <span className="text-danger text-sm font-medium">Tempo de almoço esgotado · volte logo</span>
+            ) : (
+              <span className="text-textSecondary text-xs">
+                Falta{' '}
+                <strong className="text-white tabular-nums text-sm">
+                  {Math.floor(lunchCountdown.remainingMin / 60)}h {String(lunchCountdown.remainingMin % 60).padStart(2, '0')}m
+                </strong>{' '}
+                de almoço · retorno ~ {lunchCountdown.endLabel}
+              </span>
+            )}
+          </div>
+        ) : shiftCountdown ? (
+          <div className="shrink-0 text-center animate-fade-in">
             {shiftCountdown.done ? (
               <span className="text-success text-sm font-medium">Expediente completo · saída liberada</span>
             ) : (
@@ -535,7 +579,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               </span>
             )}
           </div>
-        )}
+        ) : null}
 
         <div className="flex-1 min-h-0 flex items-center justify-center">
           <div className="w-full max-w-[14.5rem] aspect-square">

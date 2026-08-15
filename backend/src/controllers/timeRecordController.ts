@@ -305,11 +305,29 @@ export class TimeRecordController {
   async update(req: Request, res: Response) {
     try {
       const id = req.params.id as string;
-      const { punchIn, punchOut, lunchStart, lunchEnd, reason, isAbsence, isJustified, isPlantao, isPonte } = req.body;
+      const { punchIn, punchOut, lunchStart, lunchEnd, reason, isAbsence, isJustified, isPlantao, isPonte, userId, date } = req.body;
+
+      let recordId = id;
+
+      if (id.startsWith('ghost-')) {
+        const uid = String(userId || 'default-user-id');
+        const targetDate = new Date(`${date.substring(0, 10)}T00:00:00Z`);
+        
+        const newRecord = await prisma.timeRecord.create({
+          data: {
+            userId: uid,
+            date: targetDate,
+            isPlantao: isPlantao || false,
+            isPonte: isPonte || false,
+            status: 'EDITED'
+          }
+        });
+        recordId = newRecord.id;
+      }
 
       // Allow resetting values to null when explicitly sent as null or empty string
       const record = await prisma.timeRecord.update({
-        where: { id },
+        where: { id: recordId },
         data: {
           punchIn: punchIn === null || punchIn === '' ? null : (punchIn ? new Date(punchIn) : undefined),
           punchOut: punchOut === null || punchOut === '' ? null : (punchOut ? new Date(punchOut) : undefined),
@@ -328,7 +346,7 @@ export class TimeRecordController {
       // Recalcular saldo
       const balanceDiff = await balanceService.calculateDailyBalance(record);
       const finalRecord = await prisma.timeRecord.update({
-        where: { id },
+        where: { id: recordId },
         data: { balanceDiff }
       });
 

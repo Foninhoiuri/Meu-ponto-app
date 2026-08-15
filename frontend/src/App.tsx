@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
+import Settings from './pages/Settings';
 import LockScreen from './pages/LockScreen';
+import { NotificationsManager } from './components/NotificationsManager';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -11,6 +13,7 @@ function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-background w-full overflow-hidden">
+        <NotificationsManager userId={isAuthenticated ? userId : null} />
         <Routes>
           <Route 
             path="/login" 

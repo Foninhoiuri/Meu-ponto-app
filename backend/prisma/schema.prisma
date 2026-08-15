@@ -12,6 +12,8 @@ model User {
   pin          String?  // PIN criptografado para acesso offline/rápido
   settings     Settings?
   timeRecords  TimeRecord[]
+  notifications Notification[]
+  pushSubscriptions PushSubscription[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -69,4 +71,26 @@ model PlantaoEvent {
   description  String?    // Descrição detalhada
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+}
+
+model Notification {
+  id      String   @id @default(uuid())
+  userId  String
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ts      DateTime @default(now())
+  kind    String
+  title   String
+  body    String?
+  url     String?
+  read    Boolean  @default(false)
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }

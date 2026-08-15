@@ -140,15 +140,15 @@ const formatRecordDate = (dateStr: string) => {
   return `${weekday}, ${day} ${month}`;
 };
 
-// Helper to find the Monday of a given ISO date string
-const getMondayOfISOString = (isoStr: string) => {
+// Helper to find the Sunday of a given ISO date string
+const getSundayOfISOString = (isoStr: string) => {
   const parts = isoStr.substring(0, 10).split('-');
   const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
   const day = date.getDay();
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(date.setDate(diff));
-  monday.setHours(0, 0, 0, 0);
-  return monday;
+  const diff = date.getDate() - day;
+  const sunday = new Date(date.setDate(diff));
+  sunday.setHours(0, 0, 0, 0);
+  return sunday;
 };
 
 // Helper to format minutes into a "+/- Xh XXm" balance format
@@ -169,8 +169,15 @@ const buildDateTime = (baseDateStr: string, timeStr: string) => {
   return d.toISOString();
 };
 
+interface MonthGroup {
+  monthKey: string; // YYYY-MM
+  title: string;
+  summary: string;
+  weeks: WeekGroup[];
+}
+
 interface WeekGroup {
-  monday: Date;
+  sunday: Date;
   title: string;
   summary: string;
   days: any[];
@@ -182,6 +189,7 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
   const [filter, setFilter] = useState<FilterKey>('todos');
   const [view, setView] = useState<ViewKey>('lista');
   const [exporting, setExporting] = useState(false);
+  const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({});
   const currentDayRef = React.useRef<HTMLDivElement>(null);
 
   // Aplica o filtro inicial cada vez que o modal abre (ex.: vindo do aviso de férias)
@@ -231,6 +239,18 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
       .catch(console.error);
   }, []);
 
+  // Initialize expandedMonths: only the current month is expanded by default
+  useEffect(() => {
+    const now = new Date();
+    const currentMonthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    setExpandedMonths(prev => {
+      if (Object.keys(prev).length === 0) {
+        return { [currentMonthKey]: true };
+      }
+      return prev;
+    });
+  }, []);
+
   // Edit States
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editIn, setEditIn] = useState('');
@@ -251,9 +271,10 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
 
   const [currentProblemIndex, setCurrentProblemIndex] = useState(-1);
 
-  // Group real records by Monday-to-Sunday weeks
-  const groupedWeeks = useMemo(() => {
-    const groups: { [key: string]: WeekGroup } = {};
+  // Group real records by Month -> Sunday-to-Saturday weeks
+  const groupedMonths = useMemo(() => {
+    const monthGroups: { [key: string]: MonthGroup } = {};
+    const weekGroups: { [key: string]: WeekGroup } = {};
 
     const now = new Date();
     // Default to generating from start of previous month to end of current month
@@ -261,11 +282,7 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
     const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
     const allDays: any[] = [];
-
-    // Push all real records first
-    records.forEach(r => {
-      allDays.push(r);
-    });
+    records.forEach(r => allDays.push(r));
 
     // Fill in the ghost days
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
@@ -290,97 +307,101 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
     }
 
     allDays.forEach(r => {
-      const monday = getMondayOfISOString(r.date);
-      const key = monday.getTime().toString();
+      const sunday = getSundayOfISOString(r.date);
+      const weekKey = sunday.getTime().toString();
       
-      if (!groups[key]) {
-        // Compute title
-        const currentMonday = new Date(now);
-        const day = currentMonday.getDay();
-        const diff = currentMonday.getDate() - day + (day === 0 ? -6 : 1);
-        currentMonday.setDate(diff);
-        currentMonday.setHours(0, 0, 0, 0);
+      const rDateObj = new Date(`${r.date.substring(0, 10)}T00:00:00Z`);
+      const monthKey = `${rDateObj.getUTCFullYear()}-${String(rDateObj.getUTCMonth() + 1).padStart(2, '0')}`;
 
-        const prevMonday = new Date(currentMonday);
-        prevMonday.setDate(currentMonday.getDate() - 7);
+      // Initialize MonthGroup
+      if (!monthGroups[monthKey]) {
+        const monthsNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+        monthGroups[monthKey] = {
+          monthKey,
+          title: `${monthsNames[rDateObj.getUTCMonth()]} ${rDateObj.getUTCFullYear()}`,
+          summary: '',
+          weeks: []
+        };
+      }
 
-        let title = '';
-        if (monday.getTime() === currentMonday.getTime()) {
-          title = 'Semana Atual';
-        } else if (monday.getTime() === prevMonday.getTime()) {
-          title = 'Semana Anterior';
-        } else {
-          const sunday = new Date(monday);
-          sunday.setDate(monday.getDate() + 6);
-          const formatDayMonth = (d: Date) => {
-            const dd = String(d.getDate()).padStart(2, '0');
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            return `${dd}/${mm}`;
-          };
-          title = `Semana de ${formatDayMonth(monday)} a ${formatDayMonth(sunday)}`;
-        }
-
-        groups[key] = {
-          monday,
-          title,
+      // Initialize WeekGroup
+      if (!weekGroups[weekKey]) {
+        const saturday = new Date(sunday);
+        saturday.setDate(sunday.getDate() + 6);
+        const formatDayMonth = (d: Date) => {
+          const dd = String(d.getDate()).padStart(2, '0');
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          return `${dd}/${mm}`;
+        };
+        weekGroups[weekKey] = {
+          sunday,
+          title: `Semana de ${formatDayMonth(sunday)} a ${formatDayMonth(saturday)}`,
           summary: '',
           days: []
         };
+        monthGroups[monthKey].weeks.push(weekGroups[weekKey]);
       }
-      groups[key].days.push(r);
+      weekGroups[weekKey].days.push(r);
     });
 
-    // Sort weeks descending
-    const sortedWeeks = Object.values(groups).sort((a, b) => b.monday.getTime() - a.monday.getTime());
-
-    // Calculate summaries and sort daily elements
-    sortedWeeks.forEach(w => {
-      let totalMinutes = 0;
-      w.days.forEach(d => {
-        totalMinutes += d.balanceDiff || 0;
+    // Calculate summaries, sort days, sort weeks
+    const sortedMonths = Object.values(monthGroups).sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+    
+    sortedMonths.forEach(m => {
+      let monthTotalMinutes = 0;
+      m.weeks.sort((a, b) => b.sunday.getTime() - a.sunday.getTime());
+      
+      m.weeks.forEach(w => {
+        let weekTotalMinutes = 0;
+        w.days.forEach(d => {
+          weekTotalMinutes += d.balanceDiff || 0;
+        });
+        w.summary = formatBalance(weekTotalMinutes);
+        monthTotalMinutes += weekTotalMinutes;
+        w.days.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       });
-      w.summary = formatBalance(totalMinutes);
-      w.days.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      m.summary = formatBalance(monthTotalMinutes);
     });
 
-    return sortedWeeks;
+    return sortedMonths;
   }, [records]);
 
   const problemDays = useMemo(() => {
     const todayStr = getLocalDateString(new Date());
     const problems: string[] = [];
-    groupedWeeks.forEach(w => {
-      w.days.forEach(d => {
-        const isPast = d.date.substring(0, 10) !== todayStr && new Date(d.date.substring(0, 10)) < new Date(todayStr);
-        if (!isPast) return;
+    groupedMonths.forEach(m => {
+      m.weeks.forEach(w => {
+        w.days.forEach(d => {
+          const isPast = d.date.substring(0, 10) !== todayStr && new Date(d.date.substring(0, 10)) < new Date(todayStr);
+          if (!isPast) return;
 
-        let isProblem = false;
-        
-        if (d.isGhost) {
-          // Ignora dias fantasmas totalmente
-          return;
-        } else if (d.isPlantao) {
-          const hasPunches = d.punches && d.punches.length > 0;
-          const hasEvents = d.plantaoEvents && d.plantaoEvents.length > 0;
-          if (hasEvents && d.plantaoEvents.some((e: any) => !e.endTime)) isProblem = true;
-          else if (hasPunches && d.punches.length % 2 !== 0) isProblem = true;
-        } else {
-          const dt = new Date(`${d.date.substring(0, 10)}T00:00:00Z`);
-          const isWeekend = dt.getUTCDay() === 0 || dt.getUTCDay() === 6;
-          const isHoliday = holidays.includes(d.date.substring(0, 10));
-          const isPonte = isPonteCandidate(d.date, holidays);
+          let isProblem = false;
+          
+          if (d.isGhost) {
+            return;
+          } else if (d.isPlantao) {
+            const hasPunches = d.punches && d.punches.length > 0;
+            const hasEvents = d.plantaoEvents && d.plantaoEvents.length > 0;
+            if (hasEvents && d.plantaoEvents.some((e: any) => !e.endTime)) isProblem = true;
+            else if (hasPunches && d.punches.length % 2 !== 0) isProblem = true;
+          } else {
+            const dt = new Date(`${d.date.substring(0, 10)}T00:00:00Z`);
+            const isWeekend = dt.getUTCDay() === 0 || dt.getUTCDay() === 6;
+            const isHoliday = holidays.includes(d.date.substring(0, 10));
+            const isPonte = isPonteCandidate(d.date, holidays);
 
-          if (d.status === 'OPEN') isProblem = true;
-          else if ((d.lunchStart && !d.lunchEnd) || (!d.lunchStart && d.lunchEnd)) {
-            if (!isWeekend && !isHoliday && !isPonte) isProblem = true;
+            if (d.status === 'OPEN') isProblem = true;
+            else if ((d.lunchStart && !d.lunchEnd) || (!d.lunchStart && d.lunchEnd)) {
+              if (!isWeekend && !isHoliday && !isPonte) isProblem = true;
+            }
           }
-        }
 
-        if (isProblem) problems.push(d.id);
+          if (isProblem) problems.push(d.id);
+        });
       });
     });
     return problems;
-  }, [groupedWeeks]);
+  }, [groupedMonths]);
 
   // Mini-dashboard do mês corrente
   const monthKpis = useMemo(() => {
@@ -405,8 +426,8 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
     filter === 'todos' ? days : days.filter(d => dayCategory(d) === filter);
 
   const anyMatch = useMemo(
-    () => groupedWeeks.some(w => applyFilter(w.days).length > 0),
-    [groupedWeeks, filter]
+    () => groupedMonths.some(m => m.weeks.some(w => applyFilter(w.days).length > 0)),
+    [groupedMonths, filter]
   );
 
   const handleNextProblem = () => {
@@ -522,6 +543,8 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
     setIsSaving(true);
     try {
       const payload = {
+        userId: 'default-user-id',
+        date: day.date,
         punchIn: editIn ? buildDateTime(day.date, editIn) : null,
         lunchStart: editLunchStart ? buildDateTime(day.date, editLunchStart) : null,
         lunchEnd: editLunchEnd ? buildDateTime(day.date, editLunchEnd) : null,
@@ -533,7 +556,10 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
         isJustified: editIsAbsence ? editIsJustified : false
       };
 
-      const res = await fetch(`/api/records/${day.id}`, {
+      const isGhost = day.id.startsWith('ghost-');
+      const url = `/api/records/${day.id}`;
+
+      const res = await fetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -734,62 +760,95 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
               <p className="text-sm font-medium">Nenhum dia nesta categoria.</p>
             </div>
           ) : (
-            groupedWeeks.map((week) => {
-              const fdays = applyFilter(week.days);
-              if (fdays.length === 0) return null;
+            groupedMonths.map((month) => {
+              const isExpanded = expandedMonths[month.monthKey] || false;
+              
+              // Check if there's any visible day in this month to render at all
+              const hasVisibleDays = month.weeks.some(w => applyFilter(w.days).length > 0);
+              if (!hasVisibleDays) return null;
+
               return (
-              <div
-                key={week.monday.getTime()}
-                className="space-y-3"
-              >
-                {/* Week Separator */}
-                <div className="flex justify-between items-end border-b border-white/10 pb-2 px-1">
-                  <h3 className="text-xs font-semibold text-textSecondary uppercase tracking-wider">{week.title}</h3>
-                  <span className={`font-semibold text-sm ${week.summary.startsWith('+') ? 'text-success' : 'text-danger'}`}>
-                    {week.summary}
-                  </span>
-                </div>
+                <div key={month.monthKey} className="space-y-4 mb-8">
+                  {/* Month Header / Collapsible Toggle */}
+                  <div 
+                    className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors sticky top-[90px] z-10 backdrop-blur-md"
+                    onClick={() => setExpandedMonths(p => ({ ...p, [month.monthKey]: !p[month.monthKey] }))}
+                  >
+                    <div className="flex items-center gap-2">
+                      <ChevronDown size={16} className={`text-textSecondary transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                      <h2 className="text-sm font-bold text-white uppercase tracking-wider">{month.title}</h2>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-textSecondary uppercase tracking-wider hidden sm:inline">Resumo do Mês:</span>
+                      <span className={`font-bold text-sm ${month.summary.startsWith('+') ? 'text-success' : 'text-danger'}`}>
+                        {month.summary}
+                      </span>
+                    </div>
+                  </div>
 
-                {/* Days List */}
-                <div className="space-y-3">
-                  {fdays.map((day) => {
-                    const isEditing = editingId === day.id;
-                    const isToday = day.date.substring(0, 10) === getLocalDateString(new Date());
-                    
-                    if (isEditing) {
-                      return (
-                        <div 
-                          key={day.id} 
-                          id={`record-${day.id}`}
-                          ref={isToday ? currentDayRef : null}
-                          className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-4 transition-colors duration-500"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {/* Inline Form Header */}
-                          <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                            <p className="text-white font-medium">{formatRecordDate(day.date)}</p>
-                            <span className="text-[10px] text-primary font-semibold uppercase tracking-wider">Editando Ponto</span>
-                          </div>
+                  {isExpanded && (
+                    <div className="space-y-6">
+                      {month.weeks.map((week, wIdx) => {
+                        const fdays = applyFilter(week.days);
+                        if (fdays.length === 0) return null;
+                        
+                        // Determinar o número da semana para o label (Semana 1, etc)
+                        // A última semana do mês no array será a mais antiga, então se ordenamos desc, 
+                        // a semana mais recente é a última no mês, ou podemos apenas usar o week.title original.
+                        // O usuário pediu "Semana 1 mes 3". Vamos injetar no week.title ou mantê-lo?
+                        // O title já tem as datas "Semana de 05/07 a 11/07", que é ótimo. Vamos prefixar com "Semana N".
+                        const weekNumber = month.weeks.length - wIdx;
 
-                          {/* Time inputs grid OR Plantao Events Editor */}
-                          {!editIsPlantao ? (
-                            <div className="grid grid-cols-2 gap-3 [&>div]:min-w-0 [&_input]:box-border">
-                              <div>
-                                <label className="text-[11px] text-textSecondary font-medium mb-1 block">Entrada</label>
-                                <input 
-                                  type="time" 
-                                  value={editIn}
-                                  onChange={(e) => setEditIn(e.target.value)}
-                                  disabled={editIsAbsence || isSaving}
-                                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-primary/50 transition-colors disabled:opacity-30"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[11px] text-textSecondary font-medium mb-1 block">Saída</label>
-                                <input 
-                                  type="time" 
-                                  value={editOut}
-                                  onChange={(e) => setEditOut(e.target.value)}
+                        return (
+                          <div key={week.sunday.getTime()} className="space-y-3">
+                            {/* Week Separator */}
+                            <div className="flex justify-between items-end border-b border-white/10 pb-2 px-1 ml-4">
+                              <h3 className="text-xs font-semibold text-textSecondary uppercase tracking-wider">Semana {weekNumber} · {week.title.replace('Semana de ', '')}</h3>
+                              <span className={`font-semibold text-sm ${week.summary.startsWith('+') ? 'text-success' : 'text-danger'}`}>
+                                {week.summary}
+                              </span>
+                            </div>
+
+                            {/* Days List */}
+                            <div className="space-y-3 ml-4 border-l-2 border-white/5 pl-4">
+                              {fdays.map((day) => {
+                                const isEditing = editingId === day.id;
+                                const isToday = day.date.substring(0, 10) === getLocalDateString(new Date());
+                                
+                                if (isEditing) {
+                                  return (
+                                    <div 
+                                      key={day.id} 
+                                      id={`record-${day.id}`}
+                                      ref={isToday ? currentDayRef : null}
+                                      className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-4 transition-colors duration-500"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {/* Inline Form Header */}
+                                      <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                                        <p className="text-white font-medium">{formatRecordDate(day.date)}</p>
+                                        <span className="text-[10px] text-primary font-semibold uppercase tracking-wider">Editando Ponto</span>
+                                      </div>
+
+                                      {/* Time inputs grid OR Plantao Events Editor */}
+                                      {!editIsPlantao ? (
+                                        <div className="grid grid-cols-2 gap-3 [&>div]:min-w-0 [&_input]:box-border">
+                                          <div>
+                                            <label className="text-[11px] text-textSecondary font-medium mb-1 block">Entrada</label>
+                                            <input 
+                                              type="time" 
+                                              value={editIn}
+                                              onChange={(e) => setEditIn(e.target.value)}
+                                              disabled={editIsAbsence || isSaving}
+                                              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-primary/50 transition-colors disabled:opacity-30"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="text-[11px] text-textSecondary font-medium mb-1 block">Saída</label>
+                                            <input 
+                                              type="time" 
+                                              value={editOut}
+                                              onChange={(e) => setEditOut(e.target.value)}
                                   disabled={editIsAbsence || isSaving}
                                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-primary/50 transition-colors disabled:opacity-30"
                                 />
@@ -964,12 +1023,15 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
                       })();
                       const canSchedulePlantao = isWeekend || holidays.includes(day.date.substring(0, 10));
 
+                      const isPastGhost = day.status === 'MISSING';
+
                       return (
                         <Card
                           key={day.id}
                           id={`record-${day.id}`}
                           ref={isToday ? currentDayRef : null}
-                          className={`flex flex-col gap-0 p-4 rounded-2xl border ${ponteCandidate ? 'border-primary/40 bg-primary/5' : 'border-white/5'} transition-colors duration-500 ${day.status === 'FUTURE' && !ponteCandidate ? 'opacity-50' : 'bg-white/[0.02]'}`}
+                          onClick={() => isPastGhost ? handleDayClick(day) : null}
+                          className={`flex flex-col gap-0 p-4 rounded-2xl border ${ponteCandidate ? 'border-primary/40 bg-primary/5' : 'border-white/5'} transition-colors duration-500 ${day.status === 'FUTURE' && !ponteCandidate ? 'opacity-50' : 'bg-white/[0.02]'} ${isPastGhost ? 'cursor-pointer hover:border-white/20 hover:bg-white/5' : ''}`}
                         >
                           <div className="flex justify-between items-start mb-2">
                             <div>

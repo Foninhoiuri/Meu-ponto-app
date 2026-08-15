@@ -1,4 +1,10 @@
 import 'dotenv/config';
+import { conferirAmbiente } from './middlewares/security';
+import { initVapid } from './services/notifyService';
+
+conferirAmbiente();
+initVapid();
+
 import app from './app';
 
 const PORT = process.env.PORT || 3333;

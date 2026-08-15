@@ -17,6 +17,12 @@ export class HolidayService {
         feriados.forEach((f: any) => {
           this.cache[f.date] = f.name || 'Feriado';
         });
+        
+        // Feriados Estaduais/Municipais (SP) e Nacionais fixos de segurança
+        this.cache[`${year}-07-09`] = 'Revolução Constitucionalista (SP)';
+        this.cache[`${year}-01-25`] = 'Aniversário de São Paulo (SP)';
+        this.cache[`${year}-11-20`] = 'Dia da Consciência Negra';
+
         this.lastYearFetched = year;
       }
     } catch (err) {

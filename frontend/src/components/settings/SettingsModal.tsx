@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { RefreshCw, LogOut, Shield, Info, Hourglass, Copy, Check, ChevronDown, Bell, BellOff, Calendar } from 'lucide-react';
 import { isIOS, isStandalone } from '@/lib/notifications';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { PushToggle } from './PushToggle';
 
 interface Props {
   isOpen: boolean;
@@ -396,6 +397,8 @@ export const SettingsModal = ({ isOpen, onClose, onLogout, userId, onToast, onRe
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-primary/50 transition-colors"
               />
             </div>
+
+            <PushToggle userId={userId} />
 
             <div className="flex justify-between items-center p-3 rounded-xl bg-white/[0.02] border border-white/5">
               <div className="flex items-center gap-2 text-textSecondary text-xs">

@@ -8,37 +8,56 @@ interface Props {
 const LockScreen = ({ onLogin }: Props) => {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleDigit = (digit: string) => {
-    if (pin.length < 4) {
+    if (pin.length < 8 && !loading) {
       const newPin = pin + digit;
       setPin(newPin);
       
-      if (newPin.length === 4) {
+      if (newPin.length === 8) {
         verifyPin(newPin);
       }
     }
   };
 
   const handleDelete = () => {
-    setPin(pin.slice(0, -1));
-    setError(false);
+    if (!loading) {
+      setPin(pin.slice(0, -1));
+      setError(false);
+    }
   };
 
-  const verifyPin = (currentPin: string) => {
-    // Para simplificar, assumimos um PIN mockado 1234
-    // Em produção, isso bateria com o backend ou cache criptografado
-    if (currentPin === '1234') {
-      localStorage.setItem('auth_pin', 'true');
-      onLogin();
-      navigate('/', { replace: true });
-    } else {
+  const verifyPin = async (currentPin: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: currentPin })
+      });
+
+      if (res.ok) {
+        localStorage.setItem('auth_pin', 'true');
+        onLogin();
+        navigate('/', { replace: true });
+      } else {
+        setError(true);
+        setTimeout(() => {
+          setPin('');
+          setError(false);
+        }, 500);
+      }
+    } catch (err) {
+      console.error(err);
       setError(true);
       setTimeout(() => {
         setPin('');
         setError(false);
       }, 500);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -51,7 +70,7 @@ const LockScreen = ({ onLogin }: Props) => {
 
       {/* Dots */}
       <div className={`flex gap-4 mb-16 ${error ? 'animate-bounce' : ''}`}>
-        {[0, 1, 2, 3].map((index) => (
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
           <div 
             key={index}
             className={`w-4 h-4 rounded-full border border-white/30 transition-colors ${

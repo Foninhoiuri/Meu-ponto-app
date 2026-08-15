@@ -6,14 +6,13 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icone.png', 'icons.svg'],
-      workbox: {
-        // iOS: o SW precisa assumir o controle imediatamente após a instalação,
-        // senão a permissão/inscrição de notificação falha silenciosamente.
-        skipWaiting: true,
-        clientsClaim: true,
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
+        injectionPoint: undefined
       },
+      includeAssets: ['favicon.svg', 'icone.png', 'icons.svg'],
       manifest: {
         // iOS 16.4+ pode ignorar o registro de notificações sem um id único
         id: '/',
