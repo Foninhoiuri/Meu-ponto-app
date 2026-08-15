@@ -71,15 +71,15 @@ services:
           memory: 128M
     networks:
       - internal
-      - proxy
+      # - proxy
 
 volumes:
   meuponto_pgdata:
 
 networks:
   internal:
-  proxy:
-    # Rede compartilhada entre todas as stacks, criada pela stack infra-proxy.
-    # Se ainda nao existe no servidor, crie uma unica vez:
-    #   docker network create proxy
-    external: true
+  # proxy:
+  #   # Rede compartilhada entre todas as stacks, criada pela stack infra-proxy.
+  #   # Se ainda nao existe no servidor, crie uma unica vez:
+  #   #   docker network create proxy
+  #   external: true
