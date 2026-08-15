@@ -23,7 +23,26 @@ const dayType = (r: any) => {
   if (r.isPlantao) return 'Plantão';
   if (r.isPonte) return 'Ponte';
   if (isWithinTolerance(r)) return 'Tolerância';
-  return 'Normal';
+  return 'Expediente';
+};
+
+const formatHorarios = (r: any) => {
+  if (r.isPlantao && r.plantaoEvents && r.plantaoEvents.length > 0) {
+    return `${r.plantaoEvents.length} saída(s)`;
+  }
+  const ent = fmtTime(r.punchIn);
+  const sai = fmtTime(r.punchOut);
+  const alm = (r.lunchStart || r.lunchEnd) ? ` (Alm: ${fmtTime(r.lunchStart) || '--'} - ${fmtTime(r.lunchEnd) || '--'})` : '';
+  if (!ent && !sai) return '';
+  return `${ent || '--:--'} - ${sai || '--:--'}${alm}`;
+};
+
+const formatNotas = (r: any) => {
+  if (r.reason) return r.reason;
+  if (r.isPlantao && r.plantaoEvents && r.plantaoEvents.length > 0) {
+    return r.plantaoEvents.map((e: any) => `${e.name || 'Saída'}: ${fmtTime(e.startTime)}-${fmtTime(e.endTime) || '...'}`).join(' | ');
+  }
+  return '';
 };
 
 /**
@@ -66,24 +85,20 @@ export async function exportBankPdf(records: any[]): Promise<{ shared: boolean }
   // Tabela
   autoTable(doc, {
     startY: 124,
-    head: [['Data', 'Entrada', 'Almoço', 'Saída', 'Trabalhado', 'Saldo', 'Tipo']],
+    head: [['Data', 'Tipo', 'Horários', 'Saldo', 'Notas']],
     body: rows.map(r => {
-      const almoco = (r.lunchStart || r.lunchEnd) ? `${fmtTime(r.lunchStart) || '--'}–${fmtTime(r.lunchEnd) || '--'}` : '';
-      const worked = workedMinutes(r);
       return [
         fmtDate(r.date),
-        fmtTime(r.punchIn) || '',
-        almoco,
-        fmtTime(r.punchOut) || '',
-        worked > 0 ? formatHm(worked) : '',
-        signed(r.balanceDiff || 0),
         dayType(r),
+        formatHorarios(r),
+        signed(r.balanceDiff || 0),
+        formatNotas(r),
       ];
     }),
     styles: { fontSize: 9, cellPadding: 4 },
     headStyles: { fillColor: [10, 132, 255], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [245, 247, 250] },
-    columnStyles: { 5: { fontStyle: 'bold' } },
+    columnStyles: { 3: { fontStyle: 'bold' } },
     margin: { left: 40, right: 40 },
     tableWidth: pageW - 80,
   });

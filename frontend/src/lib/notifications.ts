@@ -66,9 +66,9 @@ export async function requestNotifications(): Promise<{ ok: boolean; reason: str
   }
 }
 
-async function fire(title: string, body: string, tag: string) {
+export async function showNotification(title: string, body: string, url?: string) {
   if (!notificationsGranted()) return;
-  const options: NotificationOptions = { body, tag, icon: '/icone.png', badge: '/icone.png' };
+  const options: NotificationOptions = { body, data: { url }, icon: '/icone.png', badge: '/icone.png' };
   try {
     const reg = await navigator.serviceWorker?.ready;
     if (reg) {
@@ -106,7 +106,7 @@ export function scheduleReminders(input: ReminderInput) {
   const at = (when: Date, title: string, body: string, tag: string) => {
     const delay = when.getTime() - now.getTime();
     if (delay <= 0 || delay > 20 * 60 * 60 * 1000) return; // apenas futuro, dentro do dia
-    timers.push(window.setTimeout(() => fire(title, body, tag), delay));
+    timers.push(window.setTimeout(() => showNotification(title, body), delay));
   };
 
   // 1. Lembrete de entrada

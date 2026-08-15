@@ -33,8 +33,8 @@ routes.post('/records-events', plantaoEventController.create);
 routes.put('/records-events/:id', plantaoEventController.update);
 routes.delete('/records-events/:id', plantaoEventController.delete);
 
-routes.get('/settings/:userId', settingsController.getSettings);
-routes.put('/settings/:userId', settingsController.updateSettings);
+routes.get('/settings', settingsController.get);
+routes.put('/settings', settingsController.update);
 
 routes.get('/push/vapid', notifyController.getVapid);
 routes.get('/notifications', notifyController.getNotifications);

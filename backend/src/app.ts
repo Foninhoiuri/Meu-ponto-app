@@ -18,6 +18,10 @@ app.use(express.json());
 app.use('/api', routes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
+app.get('/', (req, res) => {
+  res.json({ message: 'Backend do Meu Ponto está rodando! O frontend (app) está na porta 80.' });
+});
+
 app.use(notFoundHandler);
 app.use(errorHandler);
 

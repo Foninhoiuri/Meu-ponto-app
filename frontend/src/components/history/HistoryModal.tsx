@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { AlertCircle, Trash2, Check, Calendar, Download, RotateCcw, X, List as ListIcon, LayoutGrid, PieChart } from 'lucide-react';
+import { AlertCircle, Trash2, Check, Calendar, Download, RotateCcw, X, List as ListIcon, LayoutGrid, PieChart, ChevronDown } from 'lucide-react';
 import { PlantaoEventsEditor } from './PlantaoEventsEditor';
 import { HistoryCalendar } from './HistoryCalendar';
 import { HistorySummary } from './HistorySummary';
@@ -189,6 +189,8 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
   const [filter, setFilter] = useState<FilterKey>('todos');
   const [view, setView] = useState<ViewKey>('lista');
   const [exporting, setExporting] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [selectedExportMonths, setSelectedExportMonths] = useState<string[]>([]);
   const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({});
   const currentDayRef = React.useRef<HTMLDivElement>(null);
 
@@ -619,13 +621,31 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
     }, 140);
   };
 
-  const handleExport = async () => {
-    if (exporting) return;
+  const handleExport = () => {
+    if (groupedMonths.length === 0) {
+      onToast('Não há registros para exportar.', 'info');
+      return;
+    }
+    // Seleciona todos por padrão
+    setSelectedExportMonths(groupedMonths.map(m => m.monthKey));
+    setExportModalOpen(true);
+  };
+
+  const confirmExport = async () => {
+    if (exporting || selectedExportMonths.length === 0) return;
     setExporting(true);
     onToast('Gerando PDF...', 'info');
     try {
-      const { shared } = await exportBankPdf(records);
+      const filteredRecords = records.filter(r => {
+        if (!r.date || r.isGhost) return false;
+        const rDateObj = new Date(`${r.date.substring(0, 10)}T00:00:00Z`);
+        const monthKey = `${rDateObj.getUTCFullYear()}-${String(rDateObj.getUTCMonth() + 1).padStart(2, '0')}`;
+        return selectedExportMonths.includes(monthKey);
+      });
+
+      const { shared } = await exportBankPdf(filteredRecords);
       if (!shared) onToast('PDF exportado.', 'success');
+      setExportModalOpen(false);
     } catch (err) {
       console.error(err);
       onToast('Erro ao gerar o PDF.', 'error');
@@ -659,8 +679,9 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent variant="fullscreen" showClose={false}>
+    <>
+      <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent showClose={false} className="max-w-[32rem] p-0 overflow-hidden bg-surface border-white/10 flex flex-col h-[85vh] sm:h-[600px] outline-none">
         <DialogDescription className="sr-only">Histórico de registros de ponto</DialogDescription>
 
         {/* Header */}
@@ -1270,14 +1291,71 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
                     );
                   })}
                 </div>
-              </div>
-              );
-            })
-          )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
       </DialogContent>
     </Dialog>
+
+    {/* Export Modal Options */}
+    <Dialog open={exportModalOpen} onOpenChange={setExportModalOpen}>
+      <DialogContent className="max-w-xs p-6 bg-surface/95 backdrop-blur-xl border border-white/10">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <Download className="text-primary" size={20} />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white leading-tight">Exportar PDF</h2>
+            <p className="text-[11px] text-textSecondary mt-0.5">Selecione os meses</p>
+          </div>
+        </div>
+
+        <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-2">
+          {groupedMonths.map(m => (
+            <label key={m.monthKey} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors">
+              <span className="text-sm font-medium text-white">{m.title}</span>
+              <input 
+                type="checkbox"
+                checked={selectedExportMonths.includes(m.monthKey)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedExportMonths(prev => [...prev, m.monthKey]);
+                  } else {
+                    setSelectedExportMonths(prev => prev.filter(key => key !== m.monthKey));
+                  }
+                }}
+                className="w-4 h-4 rounded border-white/20 bg-transparent text-primary focus:ring-primary focus:ring-offset-0"
+              />
+            </label>
+          ))}
+        </div>
+
+        <div className="mt-6 flex flex-col gap-2">
+          <button 
+            onClick={confirmExport}
+            disabled={exporting || selectedExportMonths.length === 0}
+            className="w-full bg-primary text-black font-bold py-3 px-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex justify-center items-center gap-2"
+          >
+            {exporting ? 'Gerando...' : 'Confirmar e Gerar'}
+          </button>
+          <button 
+            onClick={() => setExportModalOpen(false)}
+            className="w-full bg-white/5 text-white font-medium py-3 px-4 rounded-xl hover:bg-white/10 transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };

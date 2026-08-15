@@ -43,8 +43,9 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
   const reqId = req.headers['x-request-id'] || crypto.randomUUID();
   
   if (err.name === 'PrismaClientKnownRequestError') {
+    console.error(`[Prisma Error] ${err.code} on ${req.method} ${req.originalUrl}:`, err.message);
     if (err.code === 'P2002') return res.status(409).json({ error: 'registro duplicado' });
-    if (err.code === 'P2025') return res.status(404).json({ error: 'não encontrado' });
+    if (err.code === 'P2025') return res.status(404).json({ error: 'não encontrado', details: err.message });
     return res.status(400).json({ error: 'requisição inválida' });
   }
 
@@ -52,10 +53,11 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
     return res.status(413).json({ error: 'corpo da requisição grande demais' });
   }
 
-  console.error({ err, reqId }, 'erro não tratado');
+  console.error({ err, reqId }, `erro não tratado on ${req.method} ${req.originalUrl}`);
   res.status(500).json({ error: 'erro interno', id: reqId });
 }
 
 export function notFoundHandler(req: Request, res: Response) {
-  res.status(404).json({ error: 'não encontrado' });
+  console.log(`[404] Route not mapped: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ error: 'não encontrado', route: req.originalUrl });
 }
