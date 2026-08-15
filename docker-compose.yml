@@ -31,6 +31,7 @@ services:
 
   # ─── Backend (Node.js / Express) ───────────────────────
   backend:
+    image: meuponto-backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -54,6 +55,7 @@ services:
 
   # ─── Frontend (React / Vite) ───────────────────────────
   frontend:
+    image: meuponto-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile
