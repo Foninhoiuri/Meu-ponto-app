@@ -49,12 +49,14 @@ jobs:
         working-directory: backend
         run: npx prisma generate
 
-      - name: migrations aplicam sem erro
+      - name: schema aplica no banco (db push, igual à produção)
         working-directory: backend
         env:
           DATABASE_URL: postgresql://teste:teste@localhost:5432/teste?schema=public
-        # Vale por si só: pega migration quebrada ANTES de ela chegar em produção.
-        run: npx prisma migrate deploy
+        # O projeto sincroniza o schema com `prisma db push` (é o que o `start` do
+        # backend faz em produção), não com migrations. Validar com o MESMO comando
+        # pega schema quebrado ANTES de chegar em produção.
+        run: npx prisma db push --skip-generate
 
       - name: typecheck / build (backend)
         working-directory: backend
