@@ -56,7 +56,8 @@ jobs:
         # O projeto sincroniza o schema com `prisma db push` (é o que o `start` do
         # backend faz em produção), não com migrations. Validar com o MESMO comando
         # pega schema quebrado ANTES de chegar em produção.
-        run: npx prisma db push --skip-generate
+        # (Prisma 7 removeu --skip-generate; o `start` de produção também roda sem flags.)
+        run: npx prisma db push
 
       - name: typecheck / build (backend)
         working-directory: backend
