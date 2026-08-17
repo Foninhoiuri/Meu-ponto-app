@@ -31,7 +31,10 @@ services:
 
   # ─── Backend (Node.js / Express) ───────────────────────
   backend:
-    image: meuponto-backend:latest
+    # Imagem publicada pelo workflow `build` no GHCR. O nome PRECISA incluir o
+    # registry, senão o Portainer tenta puxar do Docker Hub ("pull access denied").
+    # IMAGE_TAG permite voltar para uma versão anterior (ex.: IMAGE_TAG=1.0.0 ou o commit).
+    image: ghcr.io/foninhoiuri/meu-ponto-app-backend:${IMAGE_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -63,7 +66,7 @@ services:
 
   # ─── Frontend (React / Vite) ───────────────────────────
   frontend:
-    image: meuponto-frontend:latest
+    image: ghcr.io/foninhoiuri/meu-ponto-app-frontend:${IMAGE_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
