@@ -823,15 +823,18 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
                         return (
                           <div key={week.sunday.getTime()} className="space-y-3">
                             {/* Week Separator */}
-                            <div className="flex justify-between items-end border-b border-white/10 pb-2 px-1 ml-4">
+                            <div className="flex justify-between items-baseline px-1">
                               <h3 className="text-xs font-semibold text-textSecondary uppercase tracking-wider">Semana {weekNumber} · {week.title.replace('Semana de ', '')}</h3>
                               <span className={`font-semibold text-sm ${week.summary.startsWith('+') ? 'text-success' : 'text-danger'}`}>
                                 {week.summary}
                               </span>
                             </div>
 
+                            {/* Linha da semana: enfeite em sangria, fora do alinhamento dos cards */}
+                            <div className="-mx-6 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+
                             {/* Days List */}
-                            <div className="space-y-3 ml-4 border-l-2 border-white/5 pl-4">
+                            <div className="space-y-3">
                               {fdays.map((day) => {
                                 const isEditing = editingId === day.id;
                                 const isToday = day.date.substring(0, 10) === getLocalDateString(new Date());
