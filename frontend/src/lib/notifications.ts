@@ -66,9 +66,9 @@ export async function requestNotifications(): Promise<{ ok: boolean; reason: str
   }
 }
 
-export async function showNotification(title: string, body: string, url?: string) {
+export async function showNotification(title: string, body: string, url?: string, tag?: string) {
   if (!notificationsGranted()) return;
-  const options: NotificationOptions = { body, data: { url }, icon: '/icone.png', badge: '/icone.png' };
+  const options: NotificationOptions = { body, data: { url }, tag, icon: '/icone.png', badge: '/icone.png' };
   try {
     const reg = await navigator.serviceWorker?.ready;
     if (reg) {

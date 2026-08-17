@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, LogOut, Shield, Info, Hourglass, Copy, Check, ChevronDown, Bell, BellOff, Calendar } from 'lucide-react';
-import { isIOS, isStandalone } from '@/lib/notifications';
+import { RefreshCw, LogOut, Shield, Info, Hourglass, Copy, Check, ChevronDown, Calendar } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { PushToggle } from './PushToggle';
 
@@ -11,8 +10,6 @@ interface Props {
   userId: string;
   onToast: (msg: string, type: 'success' | 'error') => void;
   onRefresh: () => void;
-  notifEnabled: boolean;
-  onToggleNotifications: () => void;
 }
 
 interface DaySchedule {
@@ -51,7 +48,7 @@ const fmtHours = (min: number) => {
   return m === 0 ? `${h}h` : `${h}h ${String(m).padStart(2, '0')}m`;
 };
 
-export const SettingsModal = ({ isOpen, onClose, onLogout, userId, onToast, onRefresh, notifEnabled, onToggleNotifications }: Props) => {
+export const SettingsModal = ({ isOpen, onClose, onLogout, userId, onToast, onRefresh }: Props) => {
   const [copied, setCopied] = useState(false);
   const [bankValidity, setBankValidity] = useState<number>(6);
   const [strictTolerance, setStrictTolerance] = useState<boolean>(false);
@@ -228,15 +225,6 @@ export const SettingsModal = ({ isOpen, onClose, onLogout, userId, onToast, onRe
     }
   };
 
-  const notifPermission = typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported';
-  const notifStatusText = notifEnabled
-    ? 'Você receberá lembretes de entrada, volta do almoço e fim do expediente.'
-    : notifPermission === 'denied'
-      ? 'Bloqueado. No iPhone: Ajustes → Notificações → Meu Ponto (ou remova e readicione o app à Tela de Início).'
-      : isIOS() && !isStandalone()
-        ? 'No iPhone, toque em Compartilhar → "Adicionar à Tela de Início" e abra o app por lá.'
-        : 'Toque em Ativar para receber lembretes de ponto.';
-
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="h-[78dvh]">
@@ -251,27 +239,7 @@ export const SettingsModal = ({ isOpen, onClose, onLogout, userId, onToast, onRe
           
           {/* Info items */}
           <div className="space-y-3">
-            {/* Lembretes / Notificações */}
-            <div className="flex flex-col gap-2 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2 text-textSecondary text-xs">
-                  {notifEnabled ? <Bell size={14} className="text-primary" /> : <BellOff size={14} />}
-                  <span>Lembretes de Ponto</span>
-                </div>
-                <button
-                  onClick={onToggleNotifications}
-                  disabled={notifEnabled}
-                  className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
-                    notifEnabled
-                      ? 'bg-success/15 text-success border-success/25 cursor-default'
-                      : 'bg-primary/15 text-primary border-primary/25 hover:bg-primary/25'
-                  }`}
-                >
-                  {notifEnabled ? 'Ativado' : 'Ativar'}
-                </button>
-              </div>
-              <p className="text-[10px] text-textSecondary/70 leading-snug">{notifStatusText}</p>
-            </div>
+            <PushToggle userId={userId} />
 
             {/* User ID */}
             <div className="flex justify-between items-center p-3 rounded-xl bg-white/[0.02] border border-white/5">
@@ -397,8 +365,6 @@ export const SettingsModal = ({ isOpen, onClose, onLogout, userId, onToast, onRe
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-primary/50 transition-colors"
               />
             </div>
-
-            <PushToggle userId={userId} />
 
             <div className="flex justify-between items-center p-3 rounded-xl bg-white/[0.02] border border-white/5">
               <div className="flex items-center gap-2 text-textSecondary text-xs">

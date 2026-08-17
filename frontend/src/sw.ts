@@ -43,7 +43,8 @@ self.addEventListener('push', (e) => {
       body: data.body || '', 
       icon: '/icone.png', 
       badge: '/icone.png', 
-      data: data.url || '/' 
+      data: data.url || '/',
+      tag: data.tag || undefined
     })
   );
 });

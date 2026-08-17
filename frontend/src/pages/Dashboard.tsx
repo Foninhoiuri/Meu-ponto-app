@@ -1,11 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Settings, Clock, Coffee, List, AlertTriangle } from 'lucide-react';
-import {
-  requestNotifications,
-  notificationsGranted,
-  scheduleReminders,
-  clearReminders,
-} from '../lib/notifications';
 import { BigPunchButton, glassActionBase } from '../components/ui/BigPunchButton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Toast } from '../components/ui/Toast';
@@ -37,23 +31,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   // Relógio que atualiza a cada 30s para manter o contador de fim de expediente vivo
   const [now, setNow] = useState(() => new Date());
-  const [notifEnabled, setNotifEnabled] = useState(() => notificationsGranted());
   const [punchFx, setPunchFx] = useState(0); // dispara a animação de sucesso no botão
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(timer);
   }, []);
-
-  const handleToggleNotifications = async () => {
-    if (notifEnabled) {
-      setToast({ message: 'Lembretes já estão ativados.', type: 'info' });
-      return;
-    }
-    const { ok, reason } = await requestNotifications();
-    setNotifEnabled(ok);
-    setToast({ message: reason, type: ok ? 'success' : 'error' });
-  };
 
   const isPonteCandidate = (dateStr: string, holidays: string[]) => {
     const date = new Date(`${dateStr.substring(0, 10)}T00:00:00Z`);
@@ -250,43 +233,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     const endLabel = `${String(targetEnd.getHours()).padStart(2, '0')}:${String(targetEnd.getMinutes()).padStart(2, '0')}`;
     return { remainingMin, endLabel, done: remainingMin <= 0 };
   }, [todayRecord, status, holidays, now]);
-
-  // Agenda os lembretes do dia (reprograma quando o estado muda).
-  // Não depende do relógio `now` para evitar reagendar a cada 30s.
-  useEffect(() => {
-    if (!notifEnabled) {
-      clearReminders();
-      return;
-    }
-
-    const today = new Date();
-    const dow = today.getDay();
-    const dateStr = getLocalDateString(today);
-    const isWorkday =
-      dow !== 0 && dow !== 6 &&
-      !holidays.includes(dateStr) &&
-      !todayRecord?.isPlantao && !todayRecord?.isPonte;
-
-    let targetEnd: Date | null = null;
-    if (isWorkday && todayRecord?.punchIn) {
-      const [y, m, d] = dateStr.split('-').map(Number);
-      const normalEnd = new Date(y, m - 1, d, dow === 5 ? 17 : 18, 0, 0, 0);
-      const fullSpanMin = dow === 5 ? 9 * 60 : 10 * 60;
-      const shiftedEnd = new Date(new Date(todayRecord.punchIn).getTime() + fullSpanMin * 60000);
-      targetEnd = shiftedEnd > normalEnd ? shiftedEnd : normalEnd;
-    }
-
-    scheduleReminders({
-      now: new Date(),
-      status,
-      isWorkday,
-      punchIn: todayRecord?.punchIn ? new Date(todayRecord.punchIn) : null,
-      lunchStart: todayRecord?.lunchStart ? new Date(todayRecord.lunchStart) : null,
-      targetEnd,
-    });
-
-    return () => clearReminders();
-  }, [notifEnabled, todayRecord, status, holidays]);
 
   const pendingDaysCount = useMemo(() => {
     const todayStr = getLocalDateString(new Date());
@@ -690,8 +636,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         userId="default-user-id"
         onToast={(message, type) => setToast({ message, type })}
         onRefresh={fetchRecords}
-        notifEnabled={notifEnabled}
-        onToggleNotifications={handleToggleNotifications}
       />
     </div>
   );

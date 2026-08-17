@@ -33,7 +33,7 @@ export function NotificationsManager({ userId }: { userId: string | null }) {
         if (novas.length === 0) return;
         marcar();
         for (const n of novas.slice(-MAX_POPUPS)) {
-          showNotification(n.title, n.body, n.url || '/');
+          showNotification(n.title, n.body, n.url || '/', n.kind);
         }
       } catch (e) {
         console.error(e);

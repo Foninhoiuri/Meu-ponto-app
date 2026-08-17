@@ -29,7 +29,7 @@ export async function initVapid() {
   webpush.setVapidDetails(subject, pub, priv);
 }
 
-export async function sendPush(userIds: string[], payload: { title: string; body?: string; url?: string }) {
+export async function sendPush(userIds: string[], payload: { title: string; body?: string; url?: string; tag?: string }) {
   const ids = [...new Set(userIds)];
   if (!vapidPublic || ids.length === 0) return;
   const subs = await prisma.pushSubscription.findMany({ where: { userId: { in: ids } } });
@@ -59,5 +59,5 @@ export async function announce(userIds: string[], n: Aviso, opts: { push?: boole
       data: ids.map((userId) => ({ userId, kind: n.kind, title: n.title, body: n.body ?? null, url: n.url ?? null })),
     });
   } catch { /* silencioso */ }
-  if (opts.push) sendPush(ids, { title: n.title, body: n.body, url: n.url }).catch(() => {});
+  if (opts.push) sendPush(ids, { title: n.title, body: n.body, url: n.url, tag: n.kind }).catch(() => {});
 }
