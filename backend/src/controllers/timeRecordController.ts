@@ -305,7 +305,7 @@ export class TimeRecordController {
   async update(req: Request, res: Response) {
     try {
       const id = req.params.id as string;
-      const { punchIn, punchOut, lunchStart, lunchEnd, reason, isAbsence, isJustified, isPlantao, isPonte, userId, date } = req.body;
+      const { punchIn, punchOut, lunchStart, lunchEnd, reason, isAbsence, isJustified, isPlantao, isPonte, isHoliday, userId, date } = req.body;
 
       let recordId = id;
 
@@ -319,6 +319,7 @@ export class TimeRecordController {
             date: targetDate,
             isPlantao: isPlantao || false,
             isPonte: isPonte || false,
+            isHoliday: isHoliday || false,
             status: 'EDITED'
           }
         });
@@ -338,6 +339,7 @@ export class TimeRecordController {
           isJustified: isJustified !== undefined ? isJustified : undefined,
           isPlantao: isPlantao !== undefined ? isPlantao : undefined,
           isPonte: isPonte !== undefined ? isPonte : undefined,
+          isHoliday: isHoliday !== undefined ? isHoliday : undefined,
           status: 'EDITED'
         },
         include: { plantaoEvents: true }

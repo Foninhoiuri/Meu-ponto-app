@@ -14,6 +14,7 @@ export class RecalculateController {
             { status: { not: 'OPEN' } },
             { isPonte: true },
             { isPlantao: true },
+            { isHoliday: true },
           ],
         },
         include: { plantaoEvents: true },

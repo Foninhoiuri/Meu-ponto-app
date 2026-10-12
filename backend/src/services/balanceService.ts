@@ -107,7 +107,12 @@ export class BalanceService {
 
     // --- Plantão: carga esperada = 0, qualquer trabalho é HE (100%) ---
     if (record.isPlantao) {
-      return this.calculateWorkedMinutes(recordWithEvents);
+      const worked = this.calculateWorkedMinutes(recordWithEvents);
+      // Falta + plantão: a falta desconta a jornada e o plantão soma por cima.
+      if (record.isAbsence && !(record as any).isJustified) {
+        return -this.getExpectedMinutes(record.date, isHoliday, daySched) + worked;
+      }
+      return worked;
     }
 
     // --- Ponte de feriado: você folga, mas "deve" a jornada daquele dia.
@@ -129,7 +134,11 @@ export class BalanceService {
       return -this.getExpectedMinutes(record.date, isHoliday, daySched) + plantaoExtra;
     }
 
-    const expectedMinutes = this.getExpectedMinutes(record.date, isHoliday, daySched);
+    // Feriado marcado à mão (ex.: municipal) zera a jornada do dia comum. Falta e ponte
+    // acima seguem usando a jornada real, para manter o desconto que Igor lança de propósito.
+    const expectedMinutes = (record as any).isHoliday
+      ? 0
+      : this.getExpectedMinutes(record.date, isHoliday, daySched);
 
     // Dia sem jornada (fds/feriado/dia desativado) → carga 0, trabalho = HE
     if (expectedMinutes === 0) {

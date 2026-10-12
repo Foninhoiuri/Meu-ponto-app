@@ -19,9 +19,12 @@ const fmtDate = (dateStr: string) => {
 const signed = (min: number) => (min === 0 ? '—' : `${min > 0 ? '+' : '-'} ${formatHm(min)}`);
 
 const dayType = (r: any) => {
-  if (r.isAbsence) return r.isJustified ? 'Falta just.' : 'Falta';
-  if (r.isPlantao) return 'Plantão';
-  if (r.isPonte) return 'Ponte';
+  const tipos: string[] = [];
+  if (r.isAbsence) tipos.push(r.isJustified ? 'Falta just.' : 'Falta');
+  if (r.isHoliday) tipos.push('Feriado');
+  if (r.isPlantao) tipos.push('Plantão');
+  if (r.isPonte) tipos.push('Ponte');
+  if (tipos.length) return tipos.join(' + ');
   if (isWithinTolerance(r)) return 'Tolerância';
   return 'Expediente';
 };
@@ -56,6 +59,8 @@ export async function exportBankPdf(records: any[]): Promise<{ shared: boolean }
 
   const totalBalance = rows.reduce((acc, r) => acc + (r.balanceDiff || 0), 0);
   const totalWorked = rows.reduce((acc, r) => acc + workedMinutes(r), 0);
+  // Mesma definição do KPI "Horas extras" do Resumo: soma dos dias com saldo positivo.
+  const totalExtra = rows.reduce((acc, r) => acc + Math.max(r.balanceDiff || 0, 0), 0);
 
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -71,20 +76,25 @@ export async function exportBankPdf(records: any[]): Promise<{ shared: boolean }
   const now = new Date();
   doc.text(`Gerado em ${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`, 40, 66);
 
-  // Resumo
-  doc.setTextColor(30);
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  const saldoTxt = `Saldo total: ${signed(totalBalance)}`;
-  doc.text(saldoTxt, 40, 92);
-  doc.setFont('helvetica', 'normal');
+  // Resumo: horas totais, horas extras e saldo do período exportado
+  const first = rows[0]?.date.substring(0, 10).split('-').reverse().join('/');
+  const last = rows[rows.length - 1]?.date.substring(0, 10).split('-').reverse().join('/');
   doc.setFontSize(10);
   doc.setTextColor(90);
-  doc.text(`Total trabalhado: ${formatHm(totalWorked)}  ·  ${rows.length} dias registrados`, 40, 108);
+  doc.text(`Período: ${first || '—'} a ${last || '—'}  ·  ${rows.length} dias registrados`, 40, 84);
+  autoTable(doc, {
+    startY: 96,
+    head: [['Horas totais', 'Horas extras', 'Saldo']],
+    body: [[formatHm(totalWorked), totalExtra > 0 ? `+ ${formatHm(totalExtra)}` : '—', signed(totalBalance)]],
+    styles: { fontSize: 12, cellPadding: 6, halign: 'center', fontStyle: 'bold' },
+    headStyles: { fillColor: [30, 41, 59], textColor: 255 },
+    margin: { left: 40, right: 40 },
+    tableWidth: pageW - 80,
+  });
 
   // Tabela
   autoTable(doc, {
-    startY: 124,
+    startY: ((doc as any).lastAutoTable?.finalY ?? 140) + 18,
     head: [['Data', 'Tipo', 'Horários', 'Saldo', 'Notas']],
     body: rows.map(r => {
       return [

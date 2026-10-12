@@ -48,6 +48,7 @@ model TimeRecord {
   isPlantao    Boolean  @default(false)
   isPonte      Boolean  @default(false) // Ponte de Feriado (esperado = 0 horas)
   isAbsence    Boolean  @default(false) // Falta
+  isHoliday    Boolean  @default(false) // Feriado marcado pelo usuário (inclui municipal): jornada esperada = 0 no dia comum
   isJustified  Boolean  @default(false) // Falta Justificada (não desconta horas)
   reason       String?  // Justificativa para falta/ajuste plantão, ou edição manual)
   

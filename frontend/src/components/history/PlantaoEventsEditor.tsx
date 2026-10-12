@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Pencil } from 'lucide-react';
 
 interface PlantaoEvent {
   id: string;
@@ -26,6 +26,12 @@ export const PlantaoEventsEditor = ({ timeRecordId, date, onToast, onRefresh }: 
   const [newStart, setNewStart] = useState('');
   const [newEnd, setNewEnd] = useState('');
   const [newDesc, setNewDesc] = useState('');
+
+  // Edição de uma saída existente
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editStart, setEditStart] = useState('');
+  const [editEnd, setEditEnd] = useState('');
 
   useEffect(() => {
     fetchEvents();
@@ -82,6 +88,49 @@ export const PlantaoEventsEditor = ({ timeRecordId, date, onToast, onRefresh }: 
         onRefresh();
       } else {
         onToast('Erro ao adicionar', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      onToast('Erro de conexão', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const startEdit = (ev: PlantaoEvent) => {
+    setEditId(ev.id);
+    setEditName(ev.name || '');
+    setEditStart(formatTime(ev.startTime));
+    setEditEnd(formatTime(ev.endTime));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editId || !editStart) {
+      onToast('Hora de início é obrigatória', 'error');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const start = new Date(buildDateTime(editStart));
+      let end: Date | null = editEnd ? new Date(buildDateTime(editEnd)) : null;
+      // Fim antes do início = passou da meia-noite
+      if (end && end < start) end.setDate(end.getDate() + 1);
+      const res = await fetch(`/api/records-events/${editId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editName || 'Saída',
+          startTime: start.toISOString(),
+          endTime: end ? end.toISOString() : null
+        })
+      });
+      if (res.ok) {
+        onToast('Saída atualizada', 'success');
+        setEditId(null);
+        fetchEvents();
+        onRefresh();
+      } else {
+        onToast('Erro ao atualizar saída', 'error');
       }
     } catch (err) {
       console.error(err);
@@ -158,6 +207,55 @@ export const PlantaoEventsEditor = ({ timeRecordId, date, onToast, onRefresh }: 
       <div className="space-y-2">
         {events.map(ev => {
           const dur = getDurationMin(ev.startTime, ev.endTime);
+          if (editId === ev.id) {
+            return (
+              <div key={ev.id} className="bg-white/5 p-3 rounded-lg border border-primary/30 space-y-2">
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  placeholder="Nome"
+                  className="w-full bg-white/5 border border-white/10 rounded-md px-2 py-1 text-white text-xs focus:outline-none focus:border-primary/50"
+                />
+                <div className="grid grid-cols-2 gap-2 [&>div]:min-w-0">
+                  <div>
+                    <label className="text-[10px] text-textSecondary block mb-1">Início</label>
+                    <input
+                      type="time"
+                      value={editStart}
+                      onChange={e => setEditStart(e.target.value)}
+                      className="w-full min-w-0 box-border bg-white/5 border border-white/10 rounded-md px-2 py-1 text-white text-xs focus:outline-none focus:border-primary/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-textSecondary block mb-1">Fim</label>
+                    <input
+                      type="time"
+                      value={editEnd}
+                      onChange={e => setEditEnd(e.target.value)}
+                      className="w-full min-w-0 box-border bg-white/5 border border-white/10 rounded-md px-2 py-1 text-white text-xs focus:outline-none focus:border-primary/50"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveEdit}
+                    disabled={isSaving || !editStart}
+                    className="flex-1 bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30 rounded-md py-1.5 text-xs font-medium disabled:opacity-50"
+                  >
+                    Salvar
+                  </button>
+                  <button
+                    onClick={() => setEditId(null)}
+                    disabled={isSaving}
+                    className="flex-1 bg-white/5 text-white hover:bg-white/10 rounded-md py-1.5 text-xs font-medium"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            );
+          }
           return (
             <div key={ev.id} className="flex items-start gap-2 bg-white/5 p-3 rounded-lg border border-white/5">
               <div className="w-1.5 h-1.5 rounded-full bg-primary/60 flex-shrink-0 mt-1.5" />
@@ -184,6 +282,14 @@ export const PlantaoEventsEditor = ({ timeRecordId, date, onToast, onRefresh }: 
                   )}
                 </div>
               </div>
+              <button
+                onClick={() => startEdit(ev)}
+                disabled={isSaving}
+                className="p-1.5 text-primary hover:bg-primary/20 rounded-lg transition-colors flex-shrink-0"
+                aria-label="Editar saída"
+              >
+                <Pencil size={13} />
+              </button>
               <button 
                 onClick={() => handleDelete(ev.id)}
                 disabled={isSaving}

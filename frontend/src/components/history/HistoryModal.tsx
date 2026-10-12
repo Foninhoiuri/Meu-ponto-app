@@ -264,6 +264,7 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
   const [editReason, setEditReason] = useState('');
   const [editIsPlantao, setEditIsPlantao] = useState(false);
   const [editIsPonte, setEditIsPonte] = useState(false);
+  const [editIsHoliday, setEditIsHoliday] = useState(false);
 
   const isPonteCandidate = (dateStr: string, holidays: string[]) => isPonteCandidateUtil(dateStr, holidays);
 
@@ -535,6 +536,7 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
       setEditReason(day.reason || '');
       setEditIsPlantao(day.isPlantao || false);
       setEditIsPonte(day.isPonte || false);
+      setEditIsHoliday(day.isHoliday || false);
       setEditIsAbsence(day.isAbsence || false);
       setEditIsJustified(day.isJustified || false);
     }
@@ -554,6 +556,7 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
         reason: editReason || null,
         isPlantao: editIsPlantao,
         isPonte: editIsPonte,
+        isHoliday: editIsHoliday,
         isAbsence: editIsAbsence,
         isJustified: editIsAbsence ? editIsJustified : false
       };
@@ -957,6 +960,17 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
                             <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
                               <input
                                 type="checkbox"
+                                checked={editIsHoliday}
+                                onChange={(e) => setEditIsHoliday(e.target.checked)}
+                                disabled={isSaving}
+                                className="rounded border-white/10 text-primary focus:ring-0 focus:ring-offset-0 bg-transparent w-4 h-4"
+                              />
+                              <span className="text-xs font-medium text-white">Feriado</span>
+                            </label>
+
+                            <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                              <input
+                                type="checkbox"
                                 checked={editIsAbsence}
                                 onChange={(e) => {
                                   setEditIsAbsence(e.target.checked);
@@ -1145,6 +1159,9 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
                               {day.isPonte && (
                                 <span className="text-[10px] bg-primary/20 text-primary border border-primary/30 px-1.5 py-0.5 rounded font-medium">Ponte</span>
                               )}
+                              {day.isHoliday && (
+                                <span className="text-[10px] bg-primary/20 text-primary border border-primary/30 px-1.5 py-0.5 rounded font-medium">Feriado</span>
+                              )}
                               {tol && (
                                 <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded font-medium">Tolerância</span>
                               )}
@@ -1318,8 +1335,25 @@ export const HistoryModal = ({ isOpen, onClose, records, onRefresh, onToast, ini
           </div>
           <div>
             <h2 className="text-lg font-bold text-white leading-tight">Exportar PDF</h2>
-            <p className="text-[11px] text-textSecondary mt-0.5">Selecione os meses</p>
+            <p className="text-[11px] text-textSecondary mt-0.5">Todos, um ano ou meses avulsos</p>
           </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-3">
+          {['Todos', ...Array.from(new Set(groupedMonths.map(m => m.monthKey.slice(0, 4))))].map(label => {
+            const keys = groupedMonths.filter(m => label === 'Todos' || m.monthKey.startsWith(label)).map(m => m.monthKey);
+            const active = keys.length > 0 && keys.length === selectedExportMonths.length && keys.every(k => selectedExportMonths.includes(k));
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => setSelectedExportMonths(keys)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${active ? 'bg-primary text-black border-primary' : 'bg-white/5 text-white border-white/10 hover:bg-white/10'}`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-2">
