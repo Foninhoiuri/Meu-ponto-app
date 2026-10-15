@@ -53,6 +53,15 @@ export const SettingsModal = ({ isOpen, onClose, onLogout, userId, onToast, onRe
   const [bankValidity, setBankValidity] = useState<number>(6);
   const [strictTolerance, setStrictTolerance] = useState<boolean>(false);
   const [countPontes, setCountPontes] = useState<boolean>(true);
+  // Lembrete e gerador da ficha de ponto (aparece na tela inicial entre os dias 10 e 20). Padrão: ligado.
+  const [fichaAtiva, setFichaAtiva] = useState<boolean>(() => {
+    try { return localStorage.getItem('ficha_ponto_ativa') !== '0'; } catch { return true; }
+  });
+  const handleToggleFicha = () => {
+    const proximo = !fichaAtiva;
+    setFichaAtiva(proximo);
+    try { localStorage.setItem('ficha_ponto_ativa', proximo ? '1' : '0'); } catch { /* ignore */ }
+  };
   const [isSaving, setIsSaving] = useState(false);
   const [recalculateCountdown, setRecalculateCountdown] = useState(0);
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -412,6 +421,25 @@ export const SettingsModal = ({ isOpen, onClose, onLogout, userId, onToast, onRe
                 {countPontes
                   ? "Dias de ponte descontam a jornada do banco (podem virar dias de férias)."
                   : "Dias de ponte NÃO descontam do banco (folga livre)."}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2 text-textSecondary text-xs">
+                  <Calendar size={14} />
+                  <span>Lembrete da ficha de ponto</span>
+                </div>
+                <button
+                  onClick={handleToggleFicha}
+                  className={`w-10 h-5 rounded-full relative transition-colors ${fichaAtiva ? 'bg-primary' : 'bg-white/10'}`}
+                >
+                  <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${fichaAtiva ? 'left-[22px]' : 'left-[2px]'}`} />
+                </button>
+              </div>
+              <p className="text-[10px] text-textSecondary/70 mt-1">
+                Entre os dias 10 e 20 aparece na tela inicial o botão com as datas da ficha (dia 16 do mês anterior a 15 do mês atual),
+                com a entrada e a saída da sua jornada variando 5 minutos. Sem fim de semana e sem feriado.
               </p>
             </div>
 

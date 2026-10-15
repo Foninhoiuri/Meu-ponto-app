@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Settings, Clock, Coffee, List, AlertTriangle } from 'lucide-react';
+import { Settings, Clock, Coffee, List, AlertTriangle, CalendarDays } from 'lucide-react';
 import { BigPunchButton, glassActionBase } from '../components/ui/BigPunchButton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Toast } from '../components/ui/Toast';
 import { HistoryModal } from '../components/history/HistoryModal';
 import { SettingsModal } from '../components/settings/SettingsModal';
+import { FichaPontoModal } from '../components/history/FichaPontoModal';
+import { naJanela } from '@/lib/fichaPonto';
 import { PlantaoEventsEditor } from '../components/history/PlantaoEventsEditor';
 import { RecentDaysCards } from '../components/history/RecentDaysCards';
 import { Badge } from '../components/ui/Badge';
@@ -19,6 +21,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [historyFilter, setHistoryFilter] = useState<string>('todos');
   const [historyTargetId, setHistoryTargetId] = useState<string | undefined>(undefined);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isFichaOpen, setIsFichaOpen] = useState(false);
+  // Lembrete da ficha: só entre os dias 10 e 20, e só se estiver ligado em Ajustes (padrão: ligado).
+  const mostrarFicha = useMemo(() => {
+    try { if (localStorage.getItem('ficha_ponto_ativa') === '0') return false; } catch { /* usa o padrão */ }
+    return naJanela(new Date());
+  }, []);
 
   const openHistory = (filter: string = 'todos', targetId?: string) => {
     setHistoryFilter(filter);
@@ -490,6 +498,20 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         </Card>
       </header>
 
+      {mostrarFicha && (
+        <div className="px-5 pt-2 shrink-0">
+          <button
+            onClick={() => setIsFichaOpen(true)}
+            className="w-full flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-left transition-colors hover:bg-primary/15"
+          >
+            <CalendarDays className="text-primary flex-shrink-0" size={14} />
+            <span className="text-[11px] text-white/90 leading-snug">
+              Perto do dia 15 · <strong className="text-primary">ver as datas da ficha de ponto</strong>
+            </span>
+          </button>
+        </div>
+      )}
+
       {/* Ideia 2: cards compactos com os últimos dias */}
       <div className="px-5 shrink-0">
         <RecentDaysCards records={records} onOpenHistory={(id) => openHistory('todos', id)} />
@@ -627,6 +649,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         onToast={(message, type) => setToast({ message, type })}
         initialFilter={historyFilter}
         targetId={historyTargetId}
+      />
+
+      <FichaPontoModal
+        isOpen={isFichaOpen}
+        onClose={() => setIsFichaOpen(false)}
+        onToast={(message, type) => setToast({ message, type })}
       />
 
       <SettingsModal
