@@ -133,3 +133,20 @@ export function isWithinTolerance(record: any): boolean {
   const maxSingle = Math.max(diffIn, diffOut, diffLunch);
   return total > 0 && maxSingle <= 10;
 }
+
+/**
+ * Totais de todo o banco (histórico inteiro). O dia ainda aberto (status OPEN) fica de fora:
+ * o saldo dele só é definitivo depois da saída.
+ */
+export function bankTotals(records: any[]) {
+  const closed = records.filter(r => r.date && !r.isGhost && r.status !== 'OPEN');
+  let saldo = 0, positivo = 0, trabalhado = 0, pontes = 0, pontesDias = 0;
+  for (const r of closed) {
+    const bal = r.balanceDiff || 0;
+    saldo += bal;
+    if (bal > 0) positivo += bal;
+    trabalhado += workedMinutes(r);
+    if (r.isPonte) { pontes += bal; pontesDias++; }
+  }
+  return { saldo, positivo, trabalhado, pontes, pontesDias, dias: closed.length };
+}

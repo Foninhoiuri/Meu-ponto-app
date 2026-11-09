@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { workedMinutes, formatHm } from '@/lib/records';
+import { workedMinutes, formatHm, bankTotals } from '@/lib/records';
 
 interface Props {
   records: any[];
@@ -45,7 +45,8 @@ export const HistorySummary = ({ records, pendingCount }: Props) => {
     });
     const avgDiaMes = workedMonthDays ? Math.round(workedMonthTotal / workedMonthDays) : 0;
 
-    return { series, avg7, saldoMes, extraMes, plantoes, avgDiaMes, debitoPontes, pontesCount };
+    const total = bankTotals(records);
+    return { total, series, avg7, saldoMes, extraMes, plantoes, avgDiaMes, debitoPontes, pontesCount };
   }, [records]);
 
   // Geometria do gráfico de área
@@ -71,8 +72,32 @@ export const HistorySummary = ({ records, pendingCount }: Props) => {
     { label: 'Pendências', value: String(pendingCount), color: pendingCount > 0 ? 'text-danger' : 'text-success' },
   ];
 
+  const t = data.total;
+  const sgn = (m: number) => (m === 0 ? 'Em dia' : `${m > 0 ? '+ ' : '- '}${formatHm(m)}`);
+  const totais = [
+    { label: 'Saldo total do banco', value: sgn(t.saldo), color: t.saldo >= 0 ? 'text-success' : 'text-danger' },
+    { label: 'Saldo positivo (total)', value: t.positivo > 0 ? `+ ${formatHm(t.positivo)}` : '—', color: 'text-success' },
+    { label: `Pontes (${t.pontesDias} dias)`, value: t.pontes < 0 ? `- ${formatHm(t.pontes)}` : '—', color: t.pontes < 0 ? 'text-danger' : 'text-textSecondary' },
+    { label: 'Horas trabalhadas (total)', value: t.trabalhado > 0 ? formatHm(t.trabalhado) : '—', color: 'text-white' },
+  ];
+
   return (
     <div className="space-y-4">
+      {/* Totais de todo o banco (sem o dia aberto) */}
+      <div>
+        <p className="mb-2 text-[11px] uppercase tracking-wider text-textSecondary">Banco inteiro · sem o dia aberto</p>
+        <div className="grid grid-cols-2 gap-2.5">
+          {totais.map(k => (
+            <Card key={k.label} className="gap-0 border-white/10 bg-white/[0.03] py-3 shadow-none">
+              <div className="px-3.5">
+                <p className="text-[10px] uppercase tracking-wider text-textSecondary truncate">{k.label}</p>
+                <p className={cn('mt-1 text-base font-semibold tabular-nums truncate', k.color)}>{k.value}</p>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+
       {/* Gráfico de horas trabalhadas (últimos 7 dias) */}
       <Card className="gap-0 border-white/10 bg-white/[0.03] py-4 shadow-none">
         <div className="px-4">

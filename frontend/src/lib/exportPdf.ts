@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { workedMinutes, formatHm, isWithinTolerance } from './records';
+import { workedMinutes, formatHm, isWithinTolerance, bankTotals } from './records';
 
 const weekdays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -57,10 +57,9 @@ export async function exportBankPdf(records: any[]): Promise<{ shared: boolean }
     .filter(r => r.date && !r.isGhost)
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  const totalBalance = rows.reduce((acc, r) => acc + (r.balanceDiff || 0), 0);
-  const totalWorked = rows.reduce((acc, r) => acc + workedMinutes(r), 0);
-  // Mesma definição do KPI "Horas extras" do Resumo: soma dos dias com saldo positivo.
-  const totalExtra = rows.reduce((acc, r) => acc + Math.max(r.balanceDiff || 0, 0), 0);
+  // Mesmos totais do Resumo; o dia ainda aberto não entra.
+  const tot = bankTotals(rows);
+  const totalBalance = tot.saldo, totalWorked = tot.trabalhado, totalExtra = tot.positivo;
 
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -84,8 +83,8 @@ export async function exportBankPdf(records: any[]): Promise<{ shared: boolean }
   doc.text(`Período: ${first || '—'} a ${last || '—'}  ·  ${rows.length} dias registrados`, 40, 84);
   autoTable(doc, {
     startY: 96,
-    head: [['Horas totais', 'Horas extras', 'Saldo']],
-    body: [[formatHm(totalWorked), totalExtra > 0 ? `+ ${formatHm(totalExtra)}` : '—', signed(totalBalance)]],
+    head: [['Horas trabalhadas', 'Saldo positivo', `Pontes (${tot.pontesDias} dias)`, 'Saldo total']],
+    body: [[formatHm(totalWorked), totalExtra > 0 ? `+ ${formatHm(totalExtra)}` : '—', signed(tot.pontes), signed(totalBalance)]],
     styles: { fontSize: 12, cellPadding: 6, halign: 'center', fontStyle: 'bold' },
     headStyles: { fillColor: [30, 41, 59], textColor: 255 },
     margin: { left: 40, right: 40 },
